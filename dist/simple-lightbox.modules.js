@@ -10,18 +10,20 @@ Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports["default"] = void 0;
-function _typeof(obj) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (obj) { return typeof obj; } : function (obj) { return obj && "function" == typeof Symbol && obj.constructor === Symbol && obj !== Symbol.prototype ? "symbol" : typeof obj; }, _typeof(obj); }
+function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
 function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _unsupportedIterableToArray(arr) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
 function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
 function _iterableToArray(iter) { if (typeof Symbol !== "undefined" && iter[Symbol.iterator] != null || iter["@@iterator"] != null) return Array.from(iter); }
 function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) return _arrayLikeToArray(arr); }
-function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) { arr2[i] = arr[i]; } return arr2; }
+function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i]; return arr2; }
 function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, descriptor.key, descriptor); } }
+function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, _toPropertyKey(descriptor.key), descriptor); } }
 function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); Object.defineProperty(Constructor, "prototype", { writable: false }); return Constructor; }
-function _defineProperty(obj, key, value) { if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+function _defineProperty(obj, key, value) { key = _toPropertyKey(key); if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : String(i); }
+function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 var SimpleLightbox = /*#__PURE__*/function () {
   function SimpleLightbox(elements, options) {
     var _this = this;
@@ -45,7 +47,7 @@ var SimpleLightbox = /*#__PURE__*/function () {
       closeText: '&times;',
       swipeClose: true,
       showCounter: true,
-      fileExt: 'png|jpg|jpeg|gif|webp',
+      fileExt: 'png|jpg|jpeg|gif|webp|mp4',
       animationSlide: true,
       animationSpeed: 250,
       preloading: true,
@@ -517,6 +519,9 @@ var SimpleLightbox = /*#__PURE__*/function () {
           setTimeout(function () {
             var element = _this4.relatedElements[_this4.currentImageIndex];
             if (!_this4.currentImage) return;
+            _this4.currentImage.remove();
+            _this4.currentImage = _this4.createMediaElement(element.getAttribute(_this4.options.sourceAttr));
+            _this4.domNodes.image.appendChild(_this4.currentImage);
             _this4.currentImage.setAttribute('src', element.getAttribute(_this4.options.sourceAttr));
             if (_this4.loadedImages.indexOf(element.getAttribute(_this4.options.sourceAttr)) === -1) {
               _this4.show(_this4.domNodes.spinner);
@@ -539,7 +544,8 @@ var SimpleLightbox = /*#__PURE__*/function () {
       if (!this.currentImage) {
         return false;
       }
-      var tmpImage = new Image(),
+      var isVideo = this.isVideo(this.currentImage.getAttribute('src'));
+      var tmpImage = isVideo ? document.createElement('video') : new Image(),
         windowWidth = window.innerWidth * this.options.widthRatio,
         windowHeight = window.innerHeight * this.options.heightRatio;
       tmpImage.setAttribute('src', this.currentImage.getAttribute('src'));
@@ -561,7 +567,8 @@ var SimpleLightbox = /*#__PURE__*/function () {
         }
         _this5.loadImage(dirIsDefined ? direction : 1);
       });
-      tmpImage.addEventListener('load', function (event) {
+      var loadedEvent = function loadedEvent(event) {
+        var _isVideo = event.type === 'loadedmetadata' ? true : false;
         if (typeof direction !== 'undefined') {
           _this5.relatedElements[_this5.currentImageIndex].dispatchEvent(new Event('changed.' + _this5.eventNamespace));
           _this5.relatedElements[_this5.currentImageIndex].dispatchEvent(new Event((direction === 1 ? 'nextDone' : 'prevDone') + '.' + _this5.eventNamespace));
@@ -574,8 +581,8 @@ var SimpleLightbox = /*#__PURE__*/function () {
         if (_this5.loadedImages.indexOf(_this5.currentImage.getAttribute('src')) === -1) {
           _this5.loadedImages.push(_this5.currentImage.getAttribute('src'));
         }
-        var imageWidth = event.target.width,
-          imageHeight = event.target.height;
+        var imageWidth = _isVideo ? event.target.videoWidth : event.target.width,
+          imageHeight = _isVideo ? event.target.videoHeight : event.target.height;
         if (_this5.options.scaleImageToRatio || imageWidth > windowWidth || imageHeight > windowHeight) {
           var ratio = imageWidth / imageHeight > windowWidth / windowHeight ? imageWidth / windowWidth : imageHeight / windowHeight;
           imageWidth /= ratio;
@@ -654,7 +661,9 @@ var SimpleLightbox = /*#__PURE__*/function () {
         if (_this5.options.download) {
           _this5.domNodes.downloadLink.setAttribute('href', _this5.currentImage.getAttribute('src'));
         }
-      });
+      };
+      tmpImage.addEventListener('loadedmetadata', loadedEvent);
+      tmpImage.addEventListener('load', loadedEvent);
     }
   }, {
     key: "zoomPanElement",
@@ -1162,7 +1171,7 @@ var SimpleLightbox = /*#__PURE__*/function () {
       this.isAnimating = true;
       this.currentImageIndex = this.relatedElements.indexOf(element);
       var targetURL = element.getAttribute(this.options.sourceAttr);
-      this.currentImage = document.createElement('img');
+      this.currentImage = this.createMediaElement(targetURL);
       this.currentImage.style.display = 'none';
       this.currentImage.setAttribute('src', targetURL);
       this.currentImage.dataset.scale = 1;
@@ -1186,6 +1195,27 @@ var SimpleLightbox = /*#__PURE__*/function () {
       setTimeout(function () {
         element.dispatchEvent(new Event('shown.' + _this8.eventNamespace));
       }, this.options.animationSpeed);
+    }
+  }, {
+    key: "createMediaElement",
+    value: function createMediaElement(src) {
+      var el = this.isVideo(src) ? document.createElement('video') : document.createElement('img');
+      if (this.isVideo(src)) {
+        el.setAttribute('controls', '');
+        el.setAttribute('muted', 'muted');
+        el.setAttribute('autoplay', '');
+        el.setAttribute('controlsList', 'nofullscreen');
+        el.addEventListener('play', function (e) {
+          e.target.volume = 0;
+        });
+      }
+      return el;
+    }
+  }, {
+    key: "isVideo",
+    value: function isVideo(src) {
+      var _ext = src.split('.').pop();
+      return _ext === 'mp4';
     }
   }, {
     key: "forceFocus",
@@ -1581,6 +1611,5 @@ var SimpleLightbox = /*#__PURE__*/function () {
   }]);
   return SimpleLightbox;
 }();
-var _default = SimpleLightbox;
-exports["default"] = _default;
+var _default = exports["default"] = SimpleLightbox;
 global.SimpleLightbox = SimpleLightbox;

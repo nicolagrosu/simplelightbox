@@ -25,7 +25,7 @@ class SimpleLightbox {
         closeText: '&times;',
         swipeClose: true,
         showCounter: true,
-        fileExt: 'png|jpg|jpeg|gif|webp',
+        fileExt: 'png|jpg|jpeg|gif|webp|mp4',
         animationSlide: true,
         animationSpeed: 250,
         preloading: true,
@@ -555,6 +555,10 @@ class SimpleLightbox {
                 setTimeout(() => {
                     let element = this.relatedElements[this.currentImageIndex];
                     if(!this.currentImage) return;
+
+                    this.currentImage.remove();
+                    this.currentImage = this.createMediaElement(element.getAttribute(this.options.sourceAttr));
+                    this.domNodes.image.appendChild(this.currentImage);
                     this.currentImage.setAttribute('src', element.getAttribute(this.options.sourceAttr));
 
                     if (this.loadedImages.indexOf(element.getAttribute(this.options.sourceAttr)) === -1) {
@@ -579,7 +583,9 @@ class SimpleLightbox {
             return false;
         }
 
-        let tmpImage = new Image(),
+        let isVideo = this.isVideo(this.currentImage.getAttribute('src'));
+
+        let tmpImage = isVideo ? document.createElement('video') :  new Image(),
             windowWidth = window.innerWidth * this.options.widthRatio,
             windowHeight = window.innerHeight * this.options.heightRatio;
 
@@ -608,8 +614,9 @@ class SimpleLightbox {
             this.loadImage(dirIsDefined ? direction : 1);
         });
 
+        const loadedEvent = (event) => {
+            let _isVideo = event.type === 'loadedmetadata' ? true : false;
 
-        tmpImage.addEventListener('load', (event) => {
             if (typeof direction !== 'undefined') {
                 this.relatedElements[this.currentImageIndex].dispatchEvent(new Event('changed.' + this.eventNamespace));
                 this.relatedElements[this.currentImageIndex].dispatchEvent(new Event((direction === 1 ? 'nextDone' : 'prevDone') + '.' + this.eventNamespace));
@@ -624,8 +631,8 @@ class SimpleLightbox {
                 this.loadedImages.push(this.currentImage.getAttribute('src'));
             }
 
-            let imageWidth = event.target.width,
-                imageHeight = event.target.height;
+            let imageWidth = _isVideo ? event.target.videoWidth : event.target.width,
+                imageHeight = _isVideo ? event.target.videoHeight : event.target.height;
 
             if (this.options.scaleImageToRatio || imageWidth > windowWidth || imageHeight > windowHeight) {
                 let ratio = imageWidth / imageHeight > windowWidth / windowHeight ? imageWidth / windowWidth : imageHeight / windowHeight;
@@ -720,8 +727,10 @@ class SimpleLightbox {
             if (this.options.download) {
                 this.domNodes.downloadLink.setAttribute('href', this.currentImage.getAttribute('src'));
             }
+        }
 
-        });
+        tmpImage.addEventListener('loadedmetadata', loadedEvent);
+        tmpImage.addEventListener('load', loadedEvent);
     }
 
     zoomPanElement(targetOffsetX, targetOffsetY, targetScale) {
@@ -1297,8 +1306,7 @@ class SimpleLightbox {
         this.currentImageIndex = this.relatedElements.indexOf(element);
 
         let targetURL = element.getAttribute(this.options.sourceAttr);
-
-        this.currentImage = document.createElement('img');
+        this.currentImage = this.createMediaElement(targetURL);
         this.currentImage.style.display = 'none';
         this.currentImage.setAttribute('src', targetURL);
         this.currentImage.dataset.scale = 1;
@@ -1330,6 +1338,27 @@ class SimpleLightbox {
         setTimeout(() => {
             element.dispatchEvent(new Event('shown.' + this.eventNamespace));
         }, this.options.animationSpeed);
+    }
+
+    createMediaElement(src){
+        const el = this.isVideo(src) ? document.createElement('video') : document.createElement('img');
+
+        if(this.isVideo(src)){
+            el.setAttribute('controls', '');
+            el.setAttribute('muted', 'muted');
+            el.setAttribute('autoplay', '');
+            el.setAttribute('controlsList', 'nofullscreen');
+            el.addEventListener('play', (e) =>{
+                e.target.volume = 0;
+            });
+        }
+
+        return el;
+    }
+
+    isVideo(src){
+        let _ext = src.split('.').pop();
+        return  _ext === 'mp4';
     }
 
     forceFocus() {

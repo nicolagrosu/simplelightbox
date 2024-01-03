@@ -137,7 +137,7 @@ body.hidden-scroll {
   touch-action: none;
   z-index: 10000;
 }
-.sl-wrapper .sl-image img {
+.sl-wrapper .sl-image img, .sl-wrapper .sl-image video {
   margin: 0;
   padding: 0;
   display: block;
@@ -146,12 +146,12 @@ body.hidden-scroll {
   height: auto;
 }
 @media (min-width: 35.5em) {
-  .sl-wrapper .sl-image img {
+  .sl-wrapper .sl-image img, .sl-wrapper .sl-image video {
     border: 0 none;
   }
 }
 @media (min-width: 50em) {
-  .sl-wrapper .sl-image img {
+  .sl-wrapper .sl-image img, .sl-wrapper .sl-image video {
     border: 0 none;
   }
 }
