@@ -49,7 +49,11 @@ class SimpleLightbox {
         focus: true,
         scrollZoom: true,
         scrollZoomFactor: 0.5,
-        download: false
+        download: false,
+        videosControls: true,
+        videosMuted: false,
+        videosAllowFullscreen: true,
+        videosAutoplay: false
     };
 
     transitionPrefix;
@@ -1338,13 +1342,14 @@ class SimpleLightbox {
         const el = this.isVideo(src) ? document.createElement('video') : document.createElement('img');
 
         if(this.isVideo(src)){
-            el.setAttribute('controls', '');
-            el.setAttribute('muted', 'muted');
-            el.setAttribute('autoplay', '');
-            el.setAttribute('controlsList', 'nofullscreen');
-            el.addEventListener('play', (e) =>{
-                e.target.volume = 0;
-            });
+            if(this.options.videosControls)
+                el.setAttribute('controls', '');
+            if(this.options.videosMuted)
+                el.setAttribute('muted', 'muted');
+            if(this.options.videosAutoplay)
+                el.setAttribute('autoplay', '');
+            if(!this.options.videosAllowFullscreen)
+                el.setAttribute('controlsList', 'nofullscreen');
         }
 
         return el;
