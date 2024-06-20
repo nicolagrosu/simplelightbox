@@ -27,6 +27,7 @@ class SimpleLightbox {
         loop: true,
         rel: false,
         docClose: true,
+        docDoubleTapClose: true,
         swipeTolerance: 50,
         className: 'simple-lightbox',
         widthRatio: 0.8,
@@ -194,11 +195,21 @@ class SimpleLightbox {
             }
         });
 
+        let doubleTapTime;
         // close addEventListener click addEventListener doc
         if (this.options.docClose) {
             this.addEventListener(this.domNodes.wrapper, ['click.' + this.eventNamespace, 'touchstart.' + this.eventNamespace], (event) => {
                 if (this.isOpen && event.target === event.currentTarget) {
-                    this.close();
+                    if(this.options.docDoubleTapClose){
+                        let now = new Date().getTime();
+                        let timesince = now - doubleTapTime;
+
+                        if((timesince < 600) && (timesince > 0))
+                            this.close();
+
+                        doubleTapTime = new Date().getTime();
+                    }else
+                        this.close();
                 }
             });
         }

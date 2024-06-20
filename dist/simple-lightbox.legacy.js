@@ -131,9 +131,9 @@ module.exports = function from(arrayLike /* , mapfn = undefined, thisArg = undef
   var length, result, step, iterator, next, value;
   // if the target is not iterable or it's an array with the default iterator - use a simple case
   if (iteratorMethod && !(this === $Array && isArrayIteratorMethod(iteratorMethod))) {
+    result = IS_CONSTRUCTOR ? new this() : [];
     iterator = getIterator(O, iteratorMethod);
     next = iterator.next;
-    result = IS_CONSTRUCTOR ? new this() : [];
     for (;!(step = call(next, iterator)).done; index++) {
       value = mapping ? callWithSafeIterationClosing(iterator, mapfn, [step.value, index], true) : step.value;
       createProperty(result, index, value);
@@ -161,6 +161,7 @@ var createMethod = function (IS_INCLUDES) {
   return function ($this, el, fromIndex) {
     var O = toIndexedObject($this);
     var length = lengthOfArrayLike(O);
+    if (length === 0) return !IS_INCLUDES && -1;
     var index = toAbsoluteIndex(fromIndex, length);
     var value;
     // Array#includes uses SameValueZero equality algorithm
@@ -547,17 +548,16 @@ module.exports = function (bitmap, value) {
 
 },{}],27:[function(require,module,exports){
 'use strict';
-var toPropertyKey = require('../internals/to-property-key');
+var DESCRIPTORS = require('../internals/descriptors');
 var definePropertyModule = require('../internals/object-define-property');
 var createPropertyDescriptor = require('../internals/create-property-descriptor');
 
 module.exports = function (object, key, value) {
-  var propertyKey = toPropertyKey(key);
-  if (propertyKey in object) definePropertyModule.f(object, propertyKey, createPropertyDescriptor(0, value));
-  else object[propertyKey] = value;
+  if (DESCRIPTORS) definePropertyModule.f(object, key, createPropertyDescriptor(0, value));
+  else object[key] = value;
 };
 
-},{"../internals/create-property-descriptor":26,"../internals/object-define-property":94,"../internals/to-property-key":140}],28:[function(require,module,exports){
+},{"../internals/create-property-descriptor":26,"../internals/descriptors":33,"../internals/object-define-property":94}],28:[function(require,module,exports){
 'use strict';
 var anObject = require('../internals/an-object');
 var ordinaryToPrimitive = require('../internals/ordinary-to-primitive');
@@ -807,7 +807,7 @@ module.exports = function (options, source) {
   } else if (STATIC) {
     target = global[TARGET] || defineGlobalProperty(TARGET, {});
   } else {
-    target = (global[TARGET] || {}).prototype;
+    target = global[TARGET] && global[TARGET].prototype;
   }
   if (target) for (key in source) {
     sourceProperty = source[key];
@@ -843,7 +843,7 @@ module.exports = function (exec) {
 'use strict';
 // TODO: Remove from `core-js@4` since it's moved to entry points
 require('../modules/es.regexp.exec');
-var uncurryThis = require('../internals/function-uncurry-this-clause');
+var call = require('../internals/function-call');
 var defineBuiltIn = require('../internals/define-built-in');
 var regexpExec = require('../internals/regexp-exec');
 var fails = require('../internals/fails');
@@ -857,7 +857,7 @@ module.exports = function (KEY, exec, FORCED, SHAM) {
   var SYMBOL = wellKnownSymbol(KEY);
 
   var DELEGATES_TO_SYMBOL = !fails(function () {
-    // String methods call symbol-named RegEp methods
+    // String methods call symbol-named RegExp methods
     var O = {};
     O[SYMBOL] = function () { return 7; };
     return ''[KEY](O) !== 7;
@@ -895,18 +895,17 @@ module.exports = function (KEY, exec, FORCED, SHAM) {
     !DELEGATES_TO_EXEC ||
     FORCED
   ) {
-    var uncurriedNativeRegExpMethod = uncurryThis(/./[SYMBOL]);
+    var nativeRegExpMethod = /./[SYMBOL];
     var methods = exec(SYMBOL, ''[KEY], function (nativeMethod, regexp, str, arg2, forceStringMethod) {
-      var uncurriedNativeMethod = uncurryThis(nativeMethod);
       var $exec = regexp.exec;
       if ($exec === regexpExec || $exec === RegExpPrototype.exec) {
         if (DELEGATES_TO_SYMBOL && !forceStringMethod) {
           // The native String method already delegates to @@method (this
           // polyfilled function), leasing to infinite recursion.
           // We avoid it by directly calling the native @@method method.
-          return { done: true, value: uncurriedNativeRegExpMethod(regexp, str, arg2) };
+          return { done: true, value: call(nativeRegExpMethod, regexp, str, arg2) };
         }
-        return { done: true, value: uncurriedNativeMethod(str, regexp, arg2) };
+        return { done: true, value: call(nativeMethod, str, regexp, arg2) };
       }
       return { done: false };
     });
@@ -918,7 +917,7 @@ module.exports = function (KEY, exec, FORCED, SHAM) {
   if (SHAM) createNonEnumerableProperty(RegExpPrototype[SYMBOL], 'sham', true);
 };
 
-},{"../internals/create-non-enumerable-property":25,"../internals/define-built-in":30,"../internals/fails":43,"../internals/function-uncurry-this-clause":52,"../internals/regexp-exec":111,"../internals/well-known-symbol":151,"../modules/es.regexp.exec":176}],45:[function(require,module,exports){
+},{"../internals/create-non-enumerable-property":25,"../internals/define-built-in":30,"../internals/fails":43,"../internals/function-call":49,"../internals/regexp-exec":111,"../internals/well-known-symbol":151,"../modules/es.regexp.exec":176}],45:[function(require,module,exports){
 'use strict';
 var NATIVE_BIND = require('../internals/function-bind-native');
 
@@ -1436,7 +1435,6 @@ var getBuiltIn = require('../internals/get-built-in');
 var inspectSource = require('../internals/inspect-source');
 
 var noop = function () { /* empty */ };
-var empty = [];
 var construct = getBuiltIn('Reflect', 'construct');
 var constructorRegExp = /^\s*(?:class|function)\b/;
 var exec = uncurryThis(constructorRegExp.exec);
@@ -1445,7 +1443,7 @@ var INCORRECT_TO_STRING = !constructorRegExp.test(noop);
 var isConstructorModern = function isConstructor(argument) {
   if (!isCallable(argument)) return false;
   try {
-    construct(noop, empty, argument);
+    construct(noop, [], argument);
     return true;
   } catch (error) {
     return false;
@@ -1804,7 +1802,7 @@ var TEMPLATE = String(String).split('String');
 
 var makeBuiltIn = module.exports = function (value, name, options) {
   if (stringSlice($String(name), 0, 7) === 'Symbol(') {
-    name = '[' + replace($String(name), /^Symbol\(([^)]*)\)/, '$1') + ']';
+    name = '[' + replace($String(name), /^Symbol\(([^)]*)\).*$/, '$1') + ']';
   }
   if (options && options.getter) name = 'get ' + name;
   if (options && options.setter) name = 'set ' + name;
@@ -2277,7 +2275,8 @@ exports.f = NASHORN_BUG ? function propertyIsEnumerable(V) {
 'use strict';
 /* eslint-disable no-proto -- safe */
 var uncurryThisAccessor = require('../internals/function-uncurry-this-accessor');
-var anObject = require('../internals/an-object');
+var isObject = require('../internals/is-object');
+var requireObjectCoercible = require('../internals/require-object-coercible');
 var aPossiblePrototype = require('../internals/a-possible-prototype');
 
 // `Object.setPrototypeOf` method
@@ -2294,15 +2293,16 @@ module.exports = Object.setPrototypeOf || ('__proto__' in {} ? function () {
     CORRECT_SETTER = test instanceof Array;
   } catch (error) { /* empty */ }
   return function setPrototypeOf(O, proto) {
-    anObject(O);
+    requireObjectCoercible(O);
     aPossiblePrototype(proto);
+    if (!isObject(O)) return O;
     if (CORRECT_SETTER) setter(O, proto);
     else O.__proto__ = proto;
     return O;
   };
 }() : undefined);
 
-},{"../internals/a-possible-prototype":3,"../internals/an-object":6,"../internals/function-uncurry-this-accessor":51}],105:[function(require,module,exports){
+},{"../internals/a-possible-prototype":3,"../internals/function-uncurry-this-accessor":51,"../internals/is-object":75,"../internals/require-object-coercible":117}],105:[function(require,module,exports){
 'use strict';
 var TO_STRING_TAG_SUPPORT = require('../internals/to-string-tag-support');
 var classof = require('../internals/classof');
@@ -2707,30 +2707,30 @@ module.exports = function (key) {
 
 },{"../internals/shared":124,"../internals/uid":144}],123:[function(require,module,exports){
 'use strict';
-var global = require('../internals/global');
+var IS_PURE = require('../internals/is-pure');
+var globalThis = require('../internals/global');
 var defineGlobalProperty = require('../internals/define-global-property');
 
 var SHARED = '__core-js_shared__';
-var store = global[SHARED] || defineGlobalProperty(SHARED, {});
+var store = module.exports = globalThis[SHARED] || defineGlobalProperty(SHARED, {});
 
-module.exports = store;
-
-},{"../internals/define-global-property":31,"../internals/global":60}],124:[function(require,module,exports){
-'use strict';
-var IS_PURE = require('../internals/is-pure');
-var store = require('../internals/shared-store');
-
-(module.exports = function (key, value) {
-  return store[key] || (store[key] = value !== undefined ? value : {});
-})('versions', []).push({
-  version: '3.35.0',
+(store.versions || (store.versions = [])).push({
+  version: '3.37.1',
   mode: IS_PURE ? 'pure' : 'global',
-  copyright: '© 2014-2023 Denis Pushkarev (zloirock.ru)',
-  license: 'https://github.com/zloirock/core-js/blob/v3.35.0/LICENSE',
+  copyright: '© 2014-2024 Denis Pushkarev (zloirock.ru)',
+  license: 'https://github.com/zloirock/core-js/blob/v3.37.1/LICENSE',
   source: 'https://github.com/zloirock/core-js'
 });
 
-},{"../internals/is-pure":77,"../internals/shared-store":123}],125:[function(require,module,exports){
+},{"../internals/define-global-property":31,"../internals/global":60,"../internals/is-pure":77}],124:[function(require,module,exports){
+'use strict';
+var store = require('../internals/shared-store');
+
+module.exports = function (key, value) {
+  return store[key] || (store[key] = value || {});
+};
+
+},{"../internals/shared-store":123}],125:[function(require,module,exports){
 'use strict';
 var anObject = require('../internals/an-object');
 var aConstructor = require('../internals/a-constructor');
@@ -2955,7 +2955,8 @@ var min = Math.min;
 // `ToLength` abstract operation
 // https://tc39.es/ecma262/#sec-tolength
 module.exports = function (argument) {
-  return argument > 0 ? min(toIntegerOrInfinity(argument), 0x1FFFFFFFFFFFFF) : 0; // 2 ** 53 - 1 == 9007199254740991
+  var len = toIntegerOrInfinity(argument);
+  return len > 0 ? min(len, 0x1FFFFFFFFFFFFF) : 0; // 2 ** 53 - 1 == 9007199254740991
 };
 
 },{"../internals/to-integer-or-infinity":136}],138:[function(require,module,exports){
@@ -4436,31 +4437,25 @@ fixRegExpWellKnownSymbolLogic('search', function (SEARCH, nativeSearch, maybeCal
 
 },{"../internals/an-object":6,"../internals/fix-regexp-well-known-symbol-logic":44,"../internals/function-call":49,"../internals/get-method":58,"../internals/is-null-or-undefined":74,"../internals/regexp-exec-abstract":110,"../internals/require-object-coercible":117,"../internals/same-value":118,"../internals/to-string":142}],185:[function(require,module,exports){
 'use strict';
-var apply = require('../internals/function-apply');
 var call = require('../internals/function-call');
 var uncurryThis = require('../internals/function-uncurry-this');
 var fixRegExpWellKnownSymbolLogic = require('../internals/fix-regexp-well-known-symbol-logic');
 var anObject = require('../internals/an-object');
 var isNullOrUndefined = require('../internals/is-null-or-undefined');
-var isRegExp = require('../internals/is-regexp');
 var requireObjectCoercible = require('../internals/require-object-coercible');
 var speciesConstructor = require('../internals/species-constructor');
 var advanceStringIndex = require('../internals/advance-string-index');
 var toLength = require('../internals/to-length');
 var toString = require('../internals/to-string');
 var getMethod = require('../internals/get-method');
-var arraySlice = require('../internals/array-slice');
-var callRegExpExec = require('../internals/regexp-exec-abstract');
-var regexpExec = require('../internals/regexp-exec');
+var regExpExec = require('../internals/regexp-exec-abstract');
 var stickyHelpers = require('../internals/regexp-sticky-helpers');
 var fails = require('../internals/fails');
 
 var UNSUPPORTED_Y = stickyHelpers.UNSUPPORTED_Y;
 var MAX_UINT32 = 0xFFFFFFFF;
 var min = Math.min;
-var $push = [].push;
-var exec = uncurryThis(/./.exec);
-var push = uncurryThis($push);
+var push = uncurryThis([].push);
 var stringSlice = uncurryThis(''.slice);
 
 // Chrome 51 has a buggy "split" implementation when RegExp#exec !== nativeExec
@@ -4474,60 +4469,20 @@ var SPLIT_WORKS_WITH_OVERWRITTEN_EXEC = !fails(function () {
   return result.length !== 2 || result[0] !== 'a' || result[1] !== 'b';
 });
 
+var BUGGY = 'abbc'.split(/(b)*/)[1] === 'c' ||
+  // eslint-disable-next-line regexp/no-empty-group -- required for testing
+  'test'.split(/(?:)/, -1).length !== 4 ||
+  'ab'.split(/(?:ab)*/).length !== 2 ||
+  '.'.split(/(.?)(.?)/).length !== 4 ||
+  // eslint-disable-next-line regexp/no-empty-capturing-group, regexp/no-empty-group -- required for testing
+  '.'.split(/()()/).length > 1 ||
+  ''.split(/.?/).length;
+
 // @@split logic
 fixRegExpWellKnownSymbolLogic('split', function (SPLIT, nativeSplit, maybeCallNative) {
-  var internalSplit;
-  if (
-    'abbc'.split(/(b)*/)[1] === 'c' ||
-    // eslint-disable-next-line regexp/no-empty-group -- required for testing
-    'test'.split(/(?:)/, -1).length !== 4 ||
-    'ab'.split(/(?:ab)*/).length !== 2 ||
-    '.'.split(/(.?)(.?)/).length !== 4 ||
-    // eslint-disable-next-line regexp/no-empty-capturing-group, regexp/no-empty-group -- required for testing
-    '.'.split(/()()/).length > 1 ||
-    ''.split(/.?/).length
-  ) {
-    // based on es5-shim implementation, need to rework it
-    internalSplit = function (separator, limit) {
-      var string = toString(requireObjectCoercible(this));
-      var lim = limit === undefined ? MAX_UINT32 : limit >>> 0;
-      if (lim === 0) return [];
-      if (separator === undefined) return [string];
-      // If `separator` is not a regex, use native split
-      if (!isRegExp(separator)) {
-        return call(nativeSplit, string, separator, lim);
-      }
-      var output = [];
-      var flags = (separator.ignoreCase ? 'i' : '') +
-                  (separator.multiline ? 'm' : '') +
-                  (separator.unicode ? 'u' : '') +
-                  (separator.sticky ? 'y' : '');
-      var lastLastIndex = 0;
-      // Make `global` and avoid `lastIndex` issues by working with a copy
-      var separatorCopy = new RegExp(separator.source, flags + 'g');
-      var match, lastIndex, lastLength;
-      while (match = call(regexpExec, separatorCopy, string)) {
-        lastIndex = separatorCopy.lastIndex;
-        if (lastIndex > lastLastIndex) {
-          push(output, stringSlice(string, lastLastIndex, match.index));
-          if (match.length > 1 && match.index < string.length) apply($push, output, arraySlice(match, 1));
-          lastLength = match[0].length;
-          lastLastIndex = lastIndex;
-          if (output.length >= lim) break;
-        }
-        if (separatorCopy.lastIndex === match.index) separatorCopy.lastIndex++; // Avoid an infinite loop
-      }
-      if (lastLastIndex === string.length) {
-        if (lastLength || !exec(separatorCopy, '')) push(output, '');
-      } else push(output, stringSlice(string, lastLastIndex));
-      return output.length > lim ? arraySlice(output, 0, lim) : output;
-    };
-  // Chakra, V8
-  } else if ('0'.split(undefined, 0).length) {
-    internalSplit = function (separator, limit) {
-      return separator === undefined && limit === 0 ? [] : call(nativeSplit, this, separator, limit);
-    };
-  } else internalSplit = nativeSplit;
+  var internalSplit = '0'.split(undefined, 0).length ? function (separator, limit) {
+    return separator === undefined && limit === 0 ? [] : call(nativeSplit, this, separator, limit);
+  } : nativeSplit;
 
   return [
     // `String.prototype.split` method
@@ -4547,30 +4502,30 @@ fixRegExpWellKnownSymbolLogic('split', function (SPLIT, nativeSplit, maybeCallNa
     function (string, limit) {
       var rx = anObject(this);
       var S = toString(string);
-      var res = maybeCallNative(internalSplit, rx, S, limit, internalSplit !== nativeSplit);
 
-      if (res.done) return res.value;
+      if (!BUGGY) {
+        var res = maybeCallNative(internalSplit, rx, S, limit, internalSplit !== nativeSplit);
+        if (res.done) return res.value;
+      }
 
       var C = speciesConstructor(rx, RegExp);
-
       var unicodeMatching = rx.unicode;
       var flags = (rx.ignoreCase ? 'i' : '') +
                   (rx.multiline ? 'm' : '') +
                   (rx.unicode ? 'u' : '') +
                   (UNSUPPORTED_Y ? 'g' : 'y');
-
       // ^(? + rx + ) is needed, in combination with some S slicing, to
       // simulate the 'y' flag.
       var splitter = new C(UNSUPPORTED_Y ? '^(?:' + rx.source + ')' : rx, flags);
       var lim = limit === undefined ? MAX_UINT32 : limit >>> 0;
       if (lim === 0) return [];
-      if (S.length === 0) return callRegExpExec(splitter, S) === null ? [S] : [];
+      if (S.length === 0) return regExpExec(splitter, S) === null ? [S] : [];
       var p = 0;
       var q = 0;
       var A = [];
       while (q < S.length) {
         splitter.lastIndex = UNSUPPORTED_Y ? 0 : q;
-        var z = callRegExpExec(splitter, UNSUPPORTED_Y ? stringSlice(S, q) : S);
+        var z = regExpExec(splitter, UNSUPPORTED_Y ? stringSlice(S, q) : S);
         var e;
         if (
           z === null ||
@@ -4591,9 +4546,9 @@ fixRegExpWellKnownSymbolLogic('split', function (SPLIT, nativeSplit, maybeCallNa
       return A;
     }
   ];
-}, !SPLIT_WORKS_WITH_OVERWRITTEN_EXEC, UNSUPPORTED_Y);
+}, BUGGY || !SPLIT_WORKS_WITH_OVERWRITTEN_EXEC, UNSUPPORTED_Y);
 
-},{"../internals/advance-string-index":5,"../internals/an-object":6,"../internals/array-slice":14,"../internals/fails":43,"../internals/fix-regexp-well-known-symbol-logic":44,"../internals/function-apply":45,"../internals/function-call":49,"../internals/function-uncurry-this":53,"../internals/get-method":58,"../internals/is-null-or-undefined":74,"../internals/is-regexp":78,"../internals/regexp-exec":111,"../internals/regexp-exec-abstract":110,"../internals/regexp-sticky-helpers":114,"../internals/require-object-coercible":117,"../internals/species-constructor":125,"../internals/to-length":137,"../internals/to-string":142}],186:[function(require,module,exports){
+},{"../internals/advance-string-index":5,"../internals/an-object":6,"../internals/fails":43,"../internals/fix-regexp-well-known-symbol-logic":44,"../internals/function-call":49,"../internals/function-uncurry-this":53,"../internals/get-method":58,"../internals/is-null-or-undefined":74,"../internals/regexp-exec-abstract":110,"../internals/regexp-sticky-helpers":114,"../internals/require-object-coercible":117,"../internals/species-constructor":125,"../internals/to-length":137,"../internals/to-string":142}],186:[function(require,module,exports){
 'use strict';
 var $ = require('../internals/export');
 var uncurryThis = require('../internals/function-uncurry-this-clause');
@@ -5174,18 +5129,18 @@ require("core-js/modules/es.symbol.iterator.js");
 require("core-js/modules/es.array.iterator.js");
 require("core-js/modules/es.string.iterator.js");
 require("core-js/modules/web.dom-collections.iterator.js");
-require("core-js/modules/es.date.to-string.js");
-require("core-js/modules/es.object.to-string.js");
-require("core-js/modules/es.regexp.to-string.js");
-require("core-js/modules/es.object.define-property.js");
-require("core-js/modules/es.number.constructor.js");
 require("core-js/modules/es.symbol.js");
 require("core-js/modules/es.symbol.description.js");
-require("core-js/modules/es.array.slice.js");
 require("core-js/modules/es.array.includes.js");
-require("core-js/modules/es.string.includes.js");
 require("core-js/modules/es.array.index-of.js");
+require("core-js/modules/es.array.slice.js");
 require("core-js/modules/es.array.splice.js");
+require("core-js/modules/es.date.to-string.js");
+require("core-js/modules/es.number.constructor.js");
+require("core-js/modules/es.object.define-property.js");
+require("core-js/modules/es.object.to-string.js");
+require("core-js/modules/es.regexp.to-string.js");
+require("core-js/modules/es.string.includes.js");
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
 (function (self, undefined) {
   function Call(t, l) {
@@ -5413,61 +5368,61 @@ require('./simple-lightbox');
 (function (global){(function (){
 "use strict";
 
+require("core-js/modules/es.symbol.js");
+require("core-js/modules/es.symbol.description.js");
 require("core-js/modules/es.array.is-array.js");
-require("core-js/modules/es.date.to-string.js");
 require("core-js/modules/es.function.name.js");
 Object.defineProperty(exports, "__esModule", {
   value: true
 });
 exports["default"] = void 0;
-require("core-js/modules/es.regexp.exec.js");
-require("core-js/modules/es.regexp.test.js");
-require("core-js/modules/es.object.assign.js");
-require("core-js/modules/es.array.from.js");
-require("core-js/modules/es.string.iterator.js");
-require("core-js/modules/es.array.filter.js");
-require("core-js/modules/es.object.to-string.js");
-require("core-js/modules/es.array.index-of.js");
-require("core-js/modules/es.object.define-property.js");
-require("core-js/modules/es.string.starts-with.js");
-require("core-js/modules/es.string.trim-start.js");
-require("core-js/modules/es.string.replace.js");
-require("core-js/modules/es.string.split.js");
-require("core-js/modules/es.string.trim.js");
-require("core-js/modules/es.array.concat.js");
-require("core-js/modules/web.timers.js");
-require("core-js/modules/es.regexp.constructor.js");
-require("core-js/modules/es.regexp.sticky.js");
-require("core-js/modules/es.regexp.to-string.js");
-require("core-js/modules/es.array.slice.js");
-require("core-js/modules/es.parse-int.js");
-require("core-js/modules/es.array.for-each.js");
-require("core-js/modules/web.dom-collections.for-each.js");
-require("core-js/modules/es.parse-float.js");
-require("core-js/modules/es.function.bind.js");
-require("core-js/modules/es.string.match.js");
-require("core-js/modules/es.string.search.js");
 require("core-js/modules/es.symbol.iterator.js");
-require("core-js/modules/es.array.iterator.js");
-require("core-js/modules/web.dom-collections.iterator.js");
-require("core-js/modules/es.symbol.js");
-require("core-js/modules/es.symbol.description.js");
 require("core-js/modules/es.symbol.to-primitive.js");
+require("core-js/modules/es.array.concat.js");
+require("core-js/modules/es.array.filter.js");
+require("core-js/modules/es.array.for-each.js");
+require("core-js/modules/es.array.from.js");
+require("core-js/modules/es.array.index-of.js");
+require("core-js/modules/es.array.iterator.js");
+require("core-js/modules/es.array.slice.js");
 require("core-js/modules/es.date.to-primitive.js");
+require("core-js/modules/es.date.to-string.js");
+require("core-js/modules/es.function.bind.js");
 require("core-js/modules/es.number.constructor.js");
+require("core-js/modules/es.object.assign.js");
+require("core-js/modules/es.object.define-property.js");
+require("core-js/modules/es.object.to-string.js");
+require("core-js/modules/es.parse-float.js");
+require("core-js/modules/es.parse-int.js");
+require("core-js/modules/es.regexp.constructor.js");
+require("core-js/modules/es.regexp.exec.js");
+require("core-js/modules/es.regexp.sticky.js");
+require("core-js/modules/es.regexp.test.js");
+require("core-js/modules/es.regexp.to-string.js");
+require("core-js/modules/es.string.iterator.js");
+require("core-js/modules/es.string.match.js");
+require("core-js/modules/es.string.replace.js");
+require("core-js/modules/es.string.search.js");
+require("core-js/modules/es.string.split.js");
+require("core-js/modules/es.string.starts-with.js");
+require("core-js/modules/es.string.trim.js");
+require("core-js/modules/es.string.trim-start.js");
+require("core-js/modules/web.dom-collections.for-each.js");
+require("core-js/modules/web.dom-collections.iterator.js");
+require("core-js/modules/web.timers.js");
 function _typeof(o) { "@babel/helpers - typeof"; return _typeof = "function" == typeof Symbol && "symbol" == typeof Symbol.iterator ? function (o) { return typeof o; } : function (o) { return o && "function" == typeof Symbol && o.constructor === Symbol && o !== Symbol.prototype ? "symbol" : typeof o; }, _typeof(o); }
-function _createForOfIteratorHelper(o, allowArrayLike) { var it = typeof Symbol !== "undefined" && o[Symbol.iterator] || o["@@iterator"]; if (!it) { if (Array.isArray(o) || (it = _unsupportedIterableToArray(o)) || allowArrayLike && o && typeof o.length === "number") { if (it) o = it; var i = 0; var F = function F() {}; return { s: F, n: function n() { if (i >= o.length) return { done: true }; return { done: false, value: o[i++] }; }, e: function e(_e) { throw _e; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var normalCompletion = true, didErr = false, err; return { s: function s() { it = it.call(o); }, n: function n() { var step = it.next(); normalCompletion = step.done; return step; }, e: function e(_e2) { didErr = true; err = _e2; }, f: function f() { try { if (!normalCompletion && it["return"] != null) it["return"](); } finally { if (didErr) throw err; } } }; }
-function _toConsumableArray(arr) { return _arrayWithoutHoles(arr) || _iterableToArray(arr) || _unsupportedIterableToArray(arr) || _nonIterableSpread(); }
+function _createForOfIteratorHelper(r, e) { var t = "undefined" != typeof Symbol && r[Symbol.iterator] || r["@@iterator"]; if (!t) { if (Array.isArray(r) || (t = _unsupportedIterableToArray(r)) || e && r && "number" == typeof r.length) { t && (r = t); var _n = 0, F = function F() {}; return { s: F, n: function n() { return _n >= r.length ? { done: !0 } : { done: !1, value: r[_n++] }; }, e: function e(r) { throw r; }, f: F }; } throw new TypeError("Invalid attempt to iterate non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); } var o, a = !0, u = !1; return { s: function s() { t = t.call(r); }, n: function n() { var r = t.next(); return a = r.done, r; }, e: function e(r) { u = !0, o = r; }, f: function f() { try { a || null == t["return"] || t["return"](); } finally { if (u) throw o; } } }; }
+function _toConsumableArray(r) { return _arrayWithoutHoles(r) || _iterableToArray(r) || _unsupportedIterableToArray(r) || _nonIterableSpread(); }
 function _nonIterableSpread() { throw new TypeError("Invalid attempt to spread non-iterable instance.\nIn order to be iterable, non-array objects must have a [Symbol.iterator]() method."); }
-function _unsupportedIterableToArray(o, minLen) { if (!o) return; if (typeof o === "string") return _arrayLikeToArray(o, minLen); var n = Object.prototype.toString.call(o).slice(8, -1); if (n === "Object" && o.constructor) n = o.constructor.name; if (n === "Map" || n === "Set") return Array.from(o); if (n === "Arguments" || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(n)) return _arrayLikeToArray(o, minLen); }
-function _iterableToArray(iter) { if (typeof Symbol !== "undefined" && iter[Symbol.iterator] != null || iter["@@iterator"] != null) return Array.from(iter); }
-function _arrayWithoutHoles(arr) { if (Array.isArray(arr)) return _arrayLikeToArray(arr); }
-function _arrayLikeToArray(arr, len) { if (len == null || len > arr.length) len = arr.length; for (var i = 0, arr2 = new Array(len); i < len; i++) arr2[i] = arr[i]; return arr2; }
-function _classCallCheck(instance, Constructor) { if (!(instance instanceof Constructor)) { throw new TypeError("Cannot call a class as a function"); } }
-function _defineProperties(target, props) { for (var i = 0; i < props.length; i++) { var descriptor = props[i]; descriptor.enumerable = descriptor.enumerable || false; descriptor.configurable = true; if ("value" in descriptor) descriptor.writable = true; Object.defineProperty(target, _toPropertyKey(descriptor.key), descriptor); } }
-function _createClass(Constructor, protoProps, staticProps) { if (protoProps) _defineProperties(Constructor.prototype, protoProps); if (staticProps) _defineProperties(Constructor, staticProps); Object.defineProperty(Constructor, "prototype", { writable: false }); return Constructor; }
-function _defineProperty(obj, key, value) { key = _toPropertyKey(key); if (key in obj) { Object.defineProperty(obj, key, { value: value, enumerable: true, configurable: true, writable: true }); } else { obj[key] = value; } return obj; }
-function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : String(i); }
+function _unsupportedIterableToArray(r, a) { if (r) { if ("string" == typeof r) return _arrayLikeToArray(r, a); var t = {}.toString.call(r).slice(8, -1); return "Object" === t && r.constructor && (t = r.constructor.name), "Map" === t || "Set" === t ? Array.from(r) : "Arguments" === t || /^(?:Ui|I)nt(?:8|16|32)(?:Clamped)?Array$/.test(t) ? _arrayLikeToArray(r, a) : void 0; } }
+function _iterableToArray(r) { if ("undefined" != typeof Symbol && null != r[Symbol.iterator] || null != r["@@iterator"]) return Array.from(r); }
+function _arrayWithoutHoles(r) { if (Array.isArray(r)) return _arrayLikeToArray(r); }
+function _arrayLikeToArray(r, a) { (null == a || a > r.length) && (a = r.length); for (var e = 0, n = Array(a); e < a; e++) n[e] = r[e]; return n; }
+function _classCallCheck(a, n) { if (!(a instanceof n)) throw new TypeError("Cannot call a class as a function"); }
+function _defineProperties(e, r) { for (var t = 0; t < r.length; t++) { var o = r[t]; o.enumerable = o.enumerable || !1, o.configurable = !0, "value" in o && (o.writable = !0), Object.defineProperty(e, _toPropertyKey(o.key), o); } }
+function _createClass(e, r, t) { return r && _defineProperties(e.prototype, r), t && _defineProperties(e, t), Object.defineProperty(e, "prototype", { writable: !1 }), e; }
+function _defineProperty(e, r, t) { return (r = _toPropertyKey(r)) in e ? Object.defineProperty(e, r, { value: t, enumerable: !0, configurable: !0, writable: !0 }) : e[r] = t, e; }
+function _toPropertyKey(t) { var i = _toPrimitive(t, "string"); return "symbol" == _typeof(i) ? i : i + ""; }
 function _toPrimitive(t, r) { if ("object" != _typeof(t) || !t) return t; var e = t[Symbol.toPrimitive]; if (void 0 !== e) { var i = e.call(t, r || "default"); if ("object" != _typeof(i)) return i; throw new TypeError("@@toPrimitive must return a primitive value."); } return ("string" === r ? String : Number)(t); }
 var SimpleLightbox = /*#__PURE__*/function () {
   function SimpleLightbox(elements, options) {
@@ -5500,6 +5455,7 @@ var SimpleLightbox = /*#__PURE__*/function () {
       loop: true,
       rel: false,
       docClose: true,
+      docDoubleTapClose: true,
       swipeTolerance: 50,
       className: 'simple-lightbox',
       widthRatio: 0.8,
@@ -5641,12 +5597,17 @@ var SimpleLightbox = /*#__PURE__*/function () {
         _this.openImage(event.currentTarget);
       }
     });
-
+    var doubleTapTime;
     // close addEventListener click addEventListener doc
     if (this.options.docClose) {
       this.addEventListener(this.domNodes.wrapper, ['click.' + this.eventNamespace, 'touchstart.' + this.eventNamespace], function (event) {
         if (_this.isOpen && event.target === event.currentTarget) {
-          _this.close();
+          if (_this.options.docDoubleTapClose) {
+            var now = new Date().getTime();
+            var timesince = now - doubleTapTime;
+            if (timesince < 600 && timesince > 0) _this.close();
+            doubleTapTime = new Date().getTime();
+          } else _this.close();
         }
       });
     }
@@ -5685,7 +5646,7 @@ var SimpleLightbox = /*#__PURE__*/function () {
     }
     this.addEvents();
   }
-  _createClass(SimpleLightbox, [{
+  return _createClass(SimpleLightbox, [{
     key: "checkPassiveEventsSupport",
     value: function checkPassiveEventsSupport() {
       // https://github.com/WICG/EventListenerOptions/blob/gh-pages/explainer.md#feature-detection
@@ -7055,7 +7016,6 @@ var SimpleLightbox = /*#__PURE__*/function () {
       return this;
     }
   }]);
-  return SimpleLightbox;
 }();
 var _default = exports["default"] = SimpleLightbox;
 global.SimpleLightbox = SimpleLightbox;
