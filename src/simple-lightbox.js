@@ -198,7 +198,8 @@ class SimpleLightbox {
         let doubleTapTime;
         // close addEventListener click addEventListener doc
         if (this.options.docClose) {
-            this.addEventListener(this.domNodes.wrapper, ['click.' + this.eventNamespace, 'touchstart.' + this.eventNamespace], (event) => {
+            this.addEventListener(this.domNodes.wrapper, ['click.' + this.eventNamespace, 'touchend.' + this.eventNamespace], (event) => {
+                event.preventDefault();
                 if (this.isOpen && event.target === event.currentTarget) {
                     if(this.options.docDoubleTapClose){
                         let now = new Date().getTime();
