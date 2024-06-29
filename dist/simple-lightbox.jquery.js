@@ -215,8 +215,8 @@ var SimpleLightbox = /*#__PURE__*/function () {
     // close addEventListener click addEventListener doc
     if (this.options.docClose) {
       this.addEventListener(this.domNodes.wrapper, ['click.' + this.eventNamespace, 'touchend.' + this.eventNamespace], function (event) {
-        event.preventDefault();
         if (_this.isOpen && event.target === event.currentTarget) {
+          event.preventDefault();
           if (_this.options.docDoubleTapClose) {
             var now = new Date().getTime();
             var timesince = now - doubleTapTime;
