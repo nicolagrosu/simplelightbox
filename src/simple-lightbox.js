@@ -201,7 +201,7 @@ class SimpleLightbox {
             this.addEventListener(this.domNodes.wrapper, ['click.' + this.eventNamespace, 'touchend.' + this.eventNamespace], (event) => {
                 if (this.isOpen && event.target === event.currentTarget) {
                     event.preventDefault();
-                    
+
                     if(this.options.docDoubleTapClose){
                         let now = new Date().getTime();
                         let timesince = now - doubleTapTime;
